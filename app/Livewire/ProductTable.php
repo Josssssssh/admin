@@ -10,24 +10,107 @@ class ProductTable extends Component
 {
     use WithPagination;
 
-    // Declare properties to bind with form inputs
+    // Public properties for the form and modal
     public $productName, $quantity, $price, $condition, $description;
+    public $editProductName, $editQuantity, $editPrice, $editCondition, $editDescription;
+    public $isEditProductModalOpen = false, $isDeleteProductModalOpen = false, $productIdBeingDeleted;
 
-    // Validation rules
-    protected $rules = [
-        'productName' => 'required|string|max:255',
-        'quantity' => 'required|integer|min:1',
-        'price' => 'required|numeric|min:0',
-        'condition' => 'required|string',
-        'description' => 'nullable|string',
-    ];
+    // Open edit modal and load product data
+    public function openEditProductModal($productId)
+    {
+        $product = Product::find($productId);
 
-    // Submit method to store a new product
+        $this->productIdBeingDeleted = $productId; // Store product ID for deletion
+        $this->editProductName = $product->product_name;
+        $this->editQuantity = $product->quantity;
+        $this->editPrice = $product->price;
+        $this->editCondition = $product->condition;
+        $this->editDescription = $product->description;
+
+        $this->isEditProductModalOpen = true;
+    }
+
+    // Close the edit modal
+    public function closeEditProductModal()
+    {
+        $this->isEditProductModalOpen = false;
+        $this->resetEditForm();
+    }
+
+    // Handle product update
+    public function updateProduct()
+    {
+        $this->validate([
+            'editProductName' => 'required|string|max:100',
+            'editQuantity' => 'required|integer|min:1',
+            'editPrice' => 'required|numeric|min:0',
+            'editCondition' => 'required|string|in:new,slightly_used,old',
+            'editDescription' => 'nullable|string|max:255',
+        ]);
+
+        $product = Product::find($this->productIdBeingDeleted);
+
+        $product->update([
+            'product_name' => $this->editProductName,
+            'quantity' => $this->editQuantity,
+            'price' => $this->editPrice,
+            'condition' => $this->editCondition,
+            'description' => $this->editDescription,
+        ]);
+
+        session()->flash('message', 'Product successfully updated!');
+
+        $this->closeEditProductModal();
+    }
+
+    // Open delete modal and store the product ID
+    public function openDeleteProductModal($productId)
+    {
+        $this->productIdBeingDeleted = $productId;
+        $this->isDeleteProductModalOpen = true;
+    }
+
+    // Close the delete modal
+    public function closeDeleteProductModal()
+    {
+        $this->isDeleteProductModalOpen = false;
+    }
+
+    // Handle product deletion
+    public function deleteProduct()
+    {
+        $product = Product::find($this->productIdBeingDeleted);
+        $product->delete();
+
+        session()->flash('message', 'Product successfully deleted!');
+
+        $this->closeDeleteProductModal();
+    }
+
+    // Reset the edit form data
+    private function resetEditForm()
+    {
+        $this->editProductName = '';
+        $this->editQuantity = '';
+        $this->editPrice = '';
+        $this->editCondition = '';
+        $this->editDescription = '';
+    }
+
     public function submit()
     {
-        $this->validate();  // Validate the inputs
+        sleep(2);
 
-        // Create the new product
+        // Validate the input data
+        $this->validate([
+            'productName' => 'required|string|max:100', // Changed to productName
+            'quantity' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+            'condition' => 'required|string|in:new,slightly_used,old', // Updated validation
+            'description' => 'nullable|string|max:255', // Description is optional
+        ]);
+
+        // Create a new product
         Product::create([
             'product_name' => $this->productName,
             'quantity' => $this->quantity,
@@ -36,18 +119,17 @@ class ProductTable extends Component
             'description' => $this->description,
         ]);
 
-        // Reset form inputs after submission
-        $this->reset();
+        // Reset the form fields after creating the product
+        $this->reset(['productName', 'quantity', 'price', 'condition', 'description']);
 
-        // Set a success message in the session
-        session()->flash('message', 'Product added successfully!');
+        // Flash a success message
+        session()->flash('message', 'Product successfully created!');
     }
 
-    // Render method to return the view
     public function render()
     {
-        // Retrieve products with pagination
-        $products = Product::paginate(5);  // Adjust the pagination number as needed
-        return view('livewire.product-table', compact('products'));
+        return view('livewire.product-table', [
+            'products' => Product::paginate(3), // Change to fetch products
+        ]);
     }
 }
